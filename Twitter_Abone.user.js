@@ -2,16 +2,16 @@
 // @name         Twitter Abone
 // @namespace    http://example.net/
 // @version      0.1
-// @description  Twitterの「@～」部分を入れると非表示
+// @description  Twitterの本文を単語で非表示
 // @author       ---
-// @match        https://twitter.com/search?q=*
+// @match        https://twitter.com/*
 // @grant        GM_addElement
 // @grant        GM_setValue
 // @grant        GM_getValue
 // @require      https://code.jquery.com/jquery-3.6.4.slim.min.js
 // ==/UserScript==
 
-(function() {
+(function($) {
     'use strict';
 
     /** 試験的に導入されたメソッドを使ってみる */
@@ -32,7 +32,7 @@
     class NGValues {
         #_key;
         #_values;
-        #saveArray(str) { this.#_values = str.split("\n"); }
+        #saveArray(str) { this.#_values = str.split("\n").filter(t => t.length > 0); }
         constructor(key) {
             this.#_key = key || 'hoge';
             this.#_values = [];
@@ -50,14 +50,16 @@
         }
     }
 
-    const ngUser = new NGValues('NGuserScreenName');
+    //const ngUser = new NGValues('NGuserScreenName');
+    GM_setValue('NGuserScreenName', null);
+    const ngWord = new NGValues('TweetAbone_word');
 
     /** 設定モーダル？ */
     let hide_class = 'ng_hidden';
     var $modalBody = $('<div>').attr('id', 'ng_modal');
     var $modalForm = $('<form>').attr('method', 'GET').addClass(hide_class);
-    var $modalFormLabel = $('<label>').attr('for', 'ngusers').text('ID（スクリーンネーム）');
-    var $modalFormText = $('<textarea>').attr('id', 'ngusers').val(ngUser.getAllString);
+    var $modalFormLabel = $('<label>').attr('for', 'ngwords').text('単語');
+    var $modalFormText = $('<textarea>').attr('id', 'ngwords').val(ngWord.getAllString);
     var $modalFormSubmit = $('<button>').attr('type', 'submit').text('保存');
     var $modalOpen = $('<button>').attr('type', 'button').text('設定ダイアログ');
     // ---
@@ -65,7 +67,7 @@
     $modalBody.append($modalOpen).append($modalForm);
     $modalForm.on('submit', function(e) {
         e.preventDefault();
-        ngUser.setValues($(this).children('textarea').first().val());
+        ngWord.setValues($(this).children('textarea').first().val());
         $(this).addClass(hide_class);
     });
     $modalOpen.on('click', function(e) {
@@ -74,26 +76,26 @@
     });
     $('body').first().append($modalBody);
 
-    const r = /^@\w+$/;
     var fn = function() {
-        let nglist = ngUser.getAll;
+        let nglist = ngWord.getAll;
         //console.log(nglist);
         let $tweets = $('article[data-testid="tweet"]');
         $.each($tweets, function(k, tw) {
             //console.log(tw);
-            let $el = $(tw).find('div[data-testid="User-Name"] span').filter(function() {
-                return r.test($(this).text().trim());
+            let $el = $(tw).find('div[data-testid="tweetText"]').filter(function() {
+                let txt = $(this).text();
+                return (ngWord.getAll.findIndex(v => txt.indexOf(v) != -1) != -1);
             });
             //console.log($el);
             $.each($el, function(k,tw) {
                 let abClass = 'ng-abone';
-                let name = $(tw).text().replace('@', '');
                 let $parent = $(tw).closest('[aria-labelledby]');
                 //console.log(name +': '+ nglist.indexOf(name).toString());
-                if(0 <= nglist.indexOf(name)) {
+                let hasWord = (ngWord.getAll.findIndex(v => $(tw).text().indexOf(v) != -1) != -1);
+                if(hasWord) {
                     $parent.addClass(abClass);
                 }
-                if(nglist.indexOf(name) < 0 && $parent.hasClass(abClass)) {
+                if(!hasWord && $parent.hasClass(abClass)) {
                     $parent.removeClass(abClass);
                 }
             });
@@ -103,4 +105,4 @@
     var int_id;
     int_id = setInterval(fn, 800);
 
-})();
+})(jQuery);
